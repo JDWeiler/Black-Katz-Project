@@ -1,6 +1,7 @@
 #include "stm32f0xx.h"
 
 
+
 void init_spi2(void) {
     RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;  
     RCC->AHBENR |= RCC_AHBENR_GPIOBEN;   
@@ -119,4 +120,103 @@ void spi_send_command(uint8_t cmd) {
     while (!(SPI1->SR & SPI_SR_TXE)); // Wait transmit buffer is empty
     SPI1->DR = cmd;                   // Send command
     while (SPI1->SR & SPI_SR_BSY);    // Wait SPI not longer busy
+}
+
+///
+///
+///
+///
+///
+///
+/// TIMER
+///
+///
+///
+///
+///
+///
+
+// Timer 7 keeps track of regular stuff and the 2 min thing
+// Tim 15 is slower 
+void init_tim7(void) {
+    RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
+    TIM7->PSC = 47;
+    TIM7->ARR = 999;
+    TIM7->DIER |= TIM_DIER_UIE;
+    NVIC_EnableIRQ(TIM7_IRQn);
+    TIM7->CR1 |= TIM_CR1_CEN;
+}
+
+void TIM7_IRQHandler(void) {
+    if (TIM7->SR & TIM_SR_UIF) {
+        TIM7->SR &= ~TIM_SR_UIF;
+        //update_obstacles();
+        //update_dino_position();
+        //check_game_time();
+    }
+}
+
+int game_time = 0;
+int game_len = 120000;
+
+void time_checker(void) {
+    game_time += 1;
+    if (game_time >= game_len) {
+        //game_over();
+    }
+}
+
+void init_tim15(void) {
+    RCC->APB2ENR |= RCC_APB2ENR_TIM15EN;
+    TIM15->PSC = 4799;
+    TIM15->ARR = 999;
+    TIM15->DIER |= TIM_DIER_UIE;
+    NVIC_EnableIRQ(TIM15_IRQn);
+    TIM15->CR1 |= TIM_CR1_CEN;
+}
+
+void TIM15_IRQHandler(void) {
+    if (TIM15->SR & TIM_SR_UIF) {
+        TIM15->SR &= ~TIM_SR_UIF;
+        update_obstacles();
+    }
+}
+
+///
+///
+///
+///
+///
+///
+/// GPIO
+///
+///
+///
+///
+///
+///
+
+void init_buttons(void) {
+    // i used pa0 and pa1 
+    RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+
+   // pa0 input with pull-up
+    GPIOA->MODER &= ~(0x3 << (0 * 2)); 
+    GPIOA->PUPDR &= ~(0x3 << (0 * 2));  
+    GPIOA->PUPDR |= (0x1 << (0 * 2));   
+
+    // pa1 as input with pull-up
+    GPIOA->MODER &= ~(0x3 << (1 * 2));  
+    GPIOA->PUPDR &= ~(0x3 << (1 * 2));  
+    GPIOA->PUPDR |= (0x1 << (1 * 2));   
+}
+
+//is jump button pressed??
+uint8_t is_jump_button_pressed(void) {
+    return !(GPIOA->IDR & (1 << 0));  //1 press
+}
+
+// DID IT SEND OBSTACLES
+uint8_t is_obstacle_button_pressed(void) {
+    return !(GPIOA->IDR & (1 << 1));  //1 press
 }
