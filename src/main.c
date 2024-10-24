@@ -1,6 +1,7 @@
 #include "stm32f0xx.h"
 
-
+#define MAX_OBSTACLES 4
+#define WIDTH 128
 
 void init_spi2(void) {
     RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;  
@@ -150,9 +151,9 @@ void init_tim7(void) {
 void TIM7_IRQHandler(void) {
     if (TIM7->SR & TIM_SR_UIF) {
         TIM7->SR &= ~TIM_SR_UIF;
-        //update_obstacles();
-        //update_dino_position();
-        //check_game_time();
+        update_obstacles();
+        update_dino_position();
+        check_game_time();
     }
 }
 
@@ -219,4 +220,94 @@ uint8_t is_jump_button_pressed(void) {
 // DID IT SEND OBSTACLES
 uint8_t is_obstacle_button_pressed(void) {
     return !(GPIOA->IDR & (1 << 1));  //1 press
+}
+
+int dino_y = 0;              
+int jump_height = 20;   
+int jump_vel = 5;  
+int is_jumping = 0;
+int obstacle_x[MAX_OBSTACLES]; // Array to track x-position of obstacles
+int obst_vel = 2;               // obstacle speed
+int num_obstacles = 0;
+int dino_x = 10;             // Dinosaur's x position fixed right now
+int dino_width = 20;          
+int dino_height = 20;        
+int obstacle_width = 10;     
+int obstacle_height = 10;
+
+///
+///
+///
+///
+///
+///
+/// GAME LOGIC
+///
+///
+///
+///
+///
+///
+
+
+
+//obstacle fr
+void player2_spawn_obstacle(void) {
+    if (num_obstacles < MAX_OBSTACLES) {
+        obstacle_x[num_obstacles] = WIDTH;  // obstacle at right sde x = 128 might have to change that fr
+        num_obstacles++;
+    }
+}
+
+void update_obstacles(void) {
+    for (int i = 0; i < num_obstacles; i++) {
+        obstacle_x[i] -= obst_vel;  // Move obstacle left
+        if (obstacle_x[i] <= 0) {
+            // off-screenr remove it 
+            obstacle_x[i] = obstacle_x[num_obstacles - 1];  // Move last obstacle ot here
+            num_obstacles--;  
+        }
+    }
+}
+
+int check_collision(void) {
+    for (int i = 0; i < num_obstacles; i++) {
+        // Horizontal collision
+        if (obstacle_x[i] < dino_x + dino_width && obstacle_x[i] + obstacle_width > dino_x) {
+            // Vertical collision: 
+            if (dino_y < obstacle_height) {
+                return 1;  // Collision 
+            }
+        }
+    }
+    return 0;  // No collision
+}
+
+void game_loop(void) {
+    while (1) {
+        
+        if (is_jump_button_pressed()) {
+            player1_jump();
+        }
+
+        if (is_obstacle_button_pressed()) {
+            player2_spawn_obstacle();
+        }
+        
+        nano_wait(50000);  // 50 ms 
+    }
+}
+
+
+
+int main(void) {
+    // Initialize 
+    init_spi2();             
+    init_tim7();             
+    init_tim15();            
+    init_buttons();          
+    
+    game_loop();             
+
+    return 0;
 }
