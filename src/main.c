@@ -2,6 +2,42 @@
 
 #define MAX_OBSTACLES 4
 #define WIDTH 128
+#define COUNT 120
+
+uint8_t font[] = {
+    0x3F,  // '0' -> 0b00111111 (a, b, c, d, e, f)
+    0x06,  // '1' -> 0b00000110 (b, c)
+    0x5B,  // '2' -> 0b01011011 (a, b, g, e, d)
+    0x4F,  // '3' -> 0b01001111 (a, b, g, c, d)
+    0x66,  // '4' -> 0b01100110 (f, g, b, c)
+    0x6D,  // '5' -> 0b01101101 (a, f, g, c, d)
+    0x7D,  // '6' -> 0b01111101 (a, f, g, e, d, c)
+    0x07,  // '7' -> 0b00000111 (a, b, c)
+    0x7F,  // '8' -> 0b01111111 (a, b, c, d, e, f, g)
+    0x6F,  // '9' -> 0b01101111 (a, b, c, d, f, g)
+    0x77,  // 'A' -> 0b01110111 (a, b, c, e, f, g)
+    0x7C,  // 'B' -> 0b01111100 (c, d, e, f, g)
+    0x39,  // 'C' -> 0b00111001 (a, d, e, f)
+    0x5E,  // 'D' -> 0b01011110 (b, c, d, e, g)
+    0x79,  // 'E' -> 0b01111001 (a, d, e, f, g)
+    0x71,  // 'F' -> 0b01110001 (a, e, f, g)
+    0x00   // ' ' -> 0b00000000 (All segments off)
+};
+
+char disp[9] = "        ";
+
+void init_spi2(void);
+void init_tim7(void);
+void setup_tim3(void);
+void play_buzzer(void);
+void stop_buzzer(void);
+void show_char(int n, char c);
+void drive_column(int c);
+void write_display(void);
+void update_obstacles(void);
+void update_dino_position(void);
+void check_game_time(void);
+void TIM7_IRQHandler(void);
 
 void init_spi2(void) {
     RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;  
@@ -148,22 +184,41 @@ void init_tim7(void) {
     TIM7->CR1 |= TIM_CR1_CEN;
 }
 
+int countdown_value = COUNT;
+uint8_t col = 0;
 void TIM7_IRQHandler(void) {
     if (TIM7->SR & TIM_SR_UIF) {
         TIM7->SR &= ~TIM_SR_UIF;
         update_obstacles();
         update_dino_position();
         check_game_time();
+
+        if (countdown_value > 0) {
+            countdown_value--;
+        }
+
+        snprintf(disp, 9, " %4d   ", countdown_value);
+
+
+        char current_char = disp[col];
+        show_char(col, current_char);
+        col = (col + 1) % 8; 
+        drive_column(col);
     }
 }
 
-int game_time = 0;
-int game_len = 120000;
 
-void time_checker(void) {
-    game_time += 1;
-    if (game_time >= game_len) {
-        //game_over();
+void check_game_time(void) {
+    if (countdown_value <= 0) {
+        handle_game_over();
+    }
+}
+
+void handle_game_over(void) {
+    snprintf(disp, 9, "GAMEOVER");
+
+    while (1) {
+       //restart
     }
 }
 
@@ -183,6 +238,21 @@ void TIM15_IRQHandler(void) {
     }
 }
 
+
+void show_char(int n, char c) {
+    if (n < 0 || n > 7) return;
+    GPIOB->ODR = font[(int)c] | (n << 8);
+}
+
+void drive_column(int c) {
+    c &= 0x3;
+    GPIOC->BRR = (0xF << 4);
+    GPIOC->BSRR = (1 << (c + 4));
+}
+
+void write_display() {
+    snprintf(disp, 9, " %4d   ", countdown_value);
+}
 ///
 ///
 ///
@@ -246,8 +316,6 @@ void play_buzzer(void) {
 void stop_buzzer(void) {
     TIM3->CCR1 = 0;
 }
-
-
 
 
 int dino_y = 0;              
