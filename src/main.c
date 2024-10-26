@@ -222,6 +222,34 @@ uint8_t is_obstacle_button_pressed(void) {
     return !(GPIOA->IDR & (1 << 1));  //1 press
 }
 
+void setup_tim3(void) {
+    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+
+    GPIOC->MODER &= ~(0x3 << (6 * 2));
+    GPIOC->MODER |= (0x2 << (6 * 2));
+    GPIOC->AFR[0] &= ~(0xF << (6 * 4));
+    GPIOC->AFR[0] |= (0x1 << (6 * 4));
+
+    TIM3->PSC = 47;
+    TIM3->ARR = 999;
+    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M;
+    TIM3->CCMR1 |= (0x6 << 4);
+    TIM3->CCER |= TIM_CCER_CC1E;
+    TIM3->CR1 |= TIM_CR1_CEN;
+}
+
+void play_buzzer(void) {
+    TIM3->CCR1 = 500;
+}
+
+void stop_buzzer(void) {
+    TIM3->CCR1 = 0;
+}
+
+
+
+
 int dino_y = 0;              
 int jump_height = 20;   
 int jump_vel = 5;  
@@ -287,14 +315,18 @@ void game_loop(void) {
     while (1) {
         
         if (is_jump_button_pressed()) {
+            play_buzzer();
             player1_jump();
+            nano_wait(5000000);
+            stop_buzzer();
         }
 
         if (is_obstacle_button_pressed()) {
+            play_buzzer();
             player2_spawn_obstacle();
-        }
-        
-        nano_wait(50000);  // 50 ms 
+            nano_wait(500000);
+            stop_buzzer();
+        } 
     }
 }
 
@@ -305,7 +337,8 @@ int main(void) {
     init_spi2();             
     init_tim7();             
     init_tim15();            
-    init_buttons();          
+    init_buttons();  
+    setup_tim3();        
     
     game_loop();             
 
