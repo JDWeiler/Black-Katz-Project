@@ -71,34 +71,6 @@ void init_spi2(void) {
 }
 
 
-//added this just becuz
-void spi2_setup_dma(void) {
-    RCC -> AHBENR |= RCC_AHBENR_DMA1EN;
-    
-
-    DMA1_Channel5 -> CCR &= ~DMA_CCR_EN;
-
-    DMA1_Channel5 -> CMAR = 6; //CMAR IDRK
-    DMA1_Channel5 -> CPAR = (uint32_t) &(SPI2 -> DR);
-
-    DMA1_Channel5 -> CNDTR = 8;
-
-    DMA1_Channel5 -> CCR |= DMA_CCR_DIR;
-
-    DMA1_Channel5 -> CCR |= DMA_CCR_MINC;
-    
-    DMA1_Channel5 -> CCR &= ~((0x3) << (10));
-    DMA1_Channel5 -> CCR |= (0x1) << (10); 
-    DMA1_Channel5 -> CCR &= ~((0x3) << (8));
-    DMA1_Channel5 -> CCR |= (0x1) << (8);
-    DMA1_Channel5 -> CCR |= DMA_CCR_CIRC;
-
-    SPI2->CR2 |= (0x1) << 1;
-}
-
-void spi2_enable_dma(void) {
-    DMA1_Channel5 -> CCR |= DMA_CCR_EN;
-}
 
 void init_spi1() { 
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
@@ -177,7 +149,7 @@ void spi_send_command(uint8_t cmd) {
 // Tim 15 is slower 
 void init_tim7(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
-    TIM7->PSC = 47;
+    TIM7->PSC = 47999;
     TIM7->ARR = 999;
     TIM7->DIER |= TIM_DIER_UIE;
     NVIC_EnableIRQ(TIM7_IRQn);
@@ -242,6 +214,7 @@ void TIM15_IRQHandler(void) {
 void show_char(int n, char c) {
     if (n < 0 || n > 7) return;
     GPIOB->ODR = font[(int)c] | (n << 8);
+
 }
 
 void drive_column(int c) {
@@ -397,7 +370,6 @@ void game_loop(void) {
         } 
     }
 }
-
 
 
 int main(void) {
