@@ -38,6 +38,7 @@ void update_obstacles(void);
 void update_dino_position(void);
 void check_game_time(void);
 void TIM7_IRQHandler(void);
+void player1_jump(void);
 
 void init_spi2(void) {
     RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;  
@@ -69,7 +70,6 @@ void init_spi2(void) {
 
     SPI2->CR1 |= SPI_CR1_SPE;
 }
-
 
 
 void init_spi1() { 
@@ -122,7 +122,6 @@ void init_spi1(void) {
     SPI1->CR2 |= SPI_CR2_SSOE;        
 
     SPI1->CR1 |= SPI_CR1_SPE;         
-
 }
 
 void spi_send_command(uint8_t cmd) {
@@ -214,7 +213,6 @@ void TIM15_IRQHandler(void) {
 void show_char(int n, char c) {
     if (n < 0 || n > 7) return;
     GPIOB->ODR = font[(int)c] | (n << 8);
-
 }
 
 void drive_column(int c) {
@@ -325,6 +323,13 @@ void player2_spawn_obstacle(void) {
     if (num_obstacles < MAX_OBSTACLES) {
         obstacle_x[num_obstacles] = WIDTH;  // obstacle at right sde x = 128 might have to change that fr
         num_obstacles++;
+    }
+}
+
+void player1_jump(void) {
+    if (!is_jumping) {
+        is_jumping = 1;
+        dino_y += jump_height;
     }
 }
 
