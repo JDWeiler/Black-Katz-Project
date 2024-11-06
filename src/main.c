@@ -22,7 +22,7 @@ void init_tim7(void) {
     TIM7->PSC = 47999;   // Prescaler to slow down timer clock
     TIM7->ARR = 999;     // Auto-reload value to generate 1-second interval
     TIM7->DIER |= TIM_DIER_UIE; // Enable update interrupt
-    NVIC_EnableIRQ(TIM7_IRQn);  // Enable TIM7 interrupt in NVIC
+    NVIC_EnableIRQ(TIM7_IRQn);  // Enable TIM7 interrupt in NVICh
     TIM7->CR1 |= TIM_CR1_CEN;   // Start TIM7
 }
 
