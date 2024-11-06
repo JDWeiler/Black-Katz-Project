@@ -16,7 +16,7 @@ void init_spi1_slow() {
   SPI1 -> CR1 &= ~SPI_CR1_SPE;
 
   //set lowest baud rate = 48000000 / 256
-  SPI1 -> CR1 |= SPI_CR1_BR_0 | SPI_CR1_BR_1 | SPI_CR1_BR_2;
+  SPI1 -> CR1 |= SPI_CR1_BR_1 | SPI_CR1_BR_2;
 
   //8 bit data 
   SPI1 -> CR2 |= SPI_CR2_DS_2 | SPI_CR2_DS_1 | SPI_CR2_DS_0;
@@ -32,7 +32,7 @@ void init_spi1_slow() {
  * reset PA8
 */
 void enable_sdcard() {
-  GPIOA -> BSRR |= 1 << 8 + 16;
+  GPIOA -> BSRR |= 1 << (8 + 16);
 }
 /**
  * set PA8
@@ -64,6 +64,24 @@ void init_lcd_display() {
 
   GPIOA -> MODER &= ~(GPIO_MODER_MODER11 | GPIO_MODER_MODER12 | GPIO_MODER_MODER13);
   GPIOA -> MODER |= GPIO_MODER_MODER11_0 | GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0;
+
+  init_spi1_slow();
+  sdcard_io_high_speed();
+}
+
+/**
+ * PA11 : DC
+ * PA12 : RESET
+ * PA13 : LCD CS
+*/
+void init_lcd_spi() {
+  RCC -> AHBENR |= RCC_AHBENR_GPIOAEN;
+
+  GPIOA -> MODER &= ~(GPIO_MODER_MODER11 | GPIO_MODER_MODER12 | GPIO_MODER_MODER13);
+  GPIOA -> MODER |= GPIO_MODER_MODER11_0 | GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0;
+
+
+  GPIOA -> BSRR |= 1 << (13);
 
   init_spi1_slow();
   sdcard_io_high_speed();
