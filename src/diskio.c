@@ -8,18 +8,18 @@ SPI_TypeDef *sd = SPI1; // the SPI interface to use for the SD card
 
 // Weak definitions for the functions that must be implemented elsewhere
 // to allow the SPI interface for the SD card to work.
-__attribute((weak)) void init_sdcard_io() {
-    puts("init_sdcard_io() not implemented.");
-}
-__attribute((weak)) void sdcard_io_high_speed(void) {
-    puts("sdcard_io_high_speed() not implemented.");
-}
-__attribute((weak)) void enable_sdcard(void) {
-    puts("enable_sdcard() not implemented.");
-}
-__attribute((weak)) void disable_sdcard(void) {
-    puts("disable_sdcard() not implemented.");
-}
+// __attribute((weak)) void init_sdcard_io() {
+//     puts("init_sdcard_io() not implemented.");
+// }
+// __attribute((weak)) void sdcard_io_high_speed(void) {
+//     puts("sdcard_io_high_speed() not implemented.");
+// }
+// __attribute((weak)) void enable_sdcard(void) {
+//     puts("enable_sdcard() not implemented.");
+// }
+// __attribute((weak)) void disable_sdcard(void) {
+//     puts("disable_sdcard() not implemented.");
+// }
 
 // Make sure the receive FIFO of the SPI interface is clear.
 void spi_clear_rxfifo(SPI_TypeDef *s)

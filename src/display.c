@@ -1,17 +1,17 @@
 #include "stm32f0xx.h"
 
 /**
- * PB3 : SCK
- * PB4 : SDI
- * PB5 : g/cx 
+ * PA5 : SCK
+ * PA6 : MISO
+ * PA7 : MOSI 
 */
 void init_spi1_slow() {
   RCC -> APB2ENR |= RCC_APB2ENR_SPI1EN; 
-  RCC -> AHBENR |= RCC_AHBENR_GPIOBEN;
+  RCC -> AHBENR |= RCC_AHBENR_GPIOAEN;
 
-  GPIOB -> MODER &= ~(GPIO_MODER_MODER3 | GPIO_MODER_MODER4 | GPIO_MODER_MODER5);
-  GPIOA -> MODER |= (GPIO_MODER_MODER3_1 | GPIO_MODER_MODER4_1 | GPIO_MODER_MODER5_1); //pa 3, 4, 5 alternate function 
-  GPIOA -> AFR[0] &= ~(GPIO_AFRL_AFSEL3 | GPIO_AFRL_AFSEL4 | GPIO_AFRL_AFSEL5);
+  GPIOA -> MODER &= ~(GPIO_MODER_MODER5 | GPIO_MODER_MODER6 | GPIO_MODER_MODER7);
+  GPIOA -> MODER |= (GPIO_MODER_MODER5_1 | GPIO_MODER_MODER6_1 | GPIO_MODER_MODER7_1); //pa5, 6, 7 alternate function 
+  GPIOA -> AFR[0] &= ~(GPIO_AFRL_AFSEL5 | GPIO_AFRL_AFSEL6 | GPIO_AFRL_AFSEL7);
   
   SPI1 -> CR1 &= ~SPI_CR1_SPE;
 
@@ -28,19 +28,25 @@ void init_spi1_slow() {
   SPI1 -> CR1 |= SPI_CR1_SPE;
 }
 
+/**
+ * reset PA8
+*/
 void enable_sdcard() {
-  GPIOB ->  BSRR |= 1 << 2 + 16;
+  GPIOA -> BSRR |= 1 << 8 + 16;
 }
-
+/**
+ * set PA8
+*/
 void disable_sdcard() {
-  GPIOB ->  BSRR |= 1 << 2;
+  GPIOA ->  BSRR |= 1 << 8;
 }
 
 void init_sdcard_io() {
   init_spi1_slow();
+
   RCC -> AHBENR |= RCC_AHBENR_GPIOAEN;
-  
-  GPIOA -> MODER |= GPIO_MODER_MODER2_0;
+  GPIOA -> MODER &= ~GPIO_MODER_MODER8;
+  GPIOA -> MODER |= GPIO_MODER_MODER8_0;
 
   disable_sdcard();
 }
@@ -54,9 +60,10 @@ void sdcard_io_high_speed() {
 }
 
 void init_lcd_display() {
-  RCC -> AHBENR |= RCC_AHBENR_GPIOBEN;
+  RCC -> AHBENR |= RCC_AHBENR_GPIOAEN;
 
-  GPIOB -> BSRR |= (1 << 8 + 16) | (1 << 11 + 16) | (1 << 14 + 16);
+  GPIOA -> MODER &= ~(GPIO_MODER_MODER11 | GPIO_MODER_MODER12 | GPIO_MODER_MODER13);
+  GPIOA -> MODER |= GPIO_MODER_MODER11_0 | GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0;
 
   init_spi1_slow();
   sdcard_io_high_speed();
