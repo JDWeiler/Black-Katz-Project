@@ -875,6 +875,7 @@ const unsigned char asc2_1608[95][16]={
 {0x0C,0x32,0xC2,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},/*"~",94*/
 };
 
+
 //===========================================================================
 // Display a single character at position x,y on the screen.
 // fc,bc are the foreground,background colors
