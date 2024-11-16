@@ -14,32 +14,33 @@ lcd_dev_t lcddev;
 
 #define SPI SPI1
 
-// #define CS_NUM  8
-// #define CS_BIT  (1<<CS_NUM)
-// #define CS_HIGH do { GPIOB->BSRR = GPIO_BSRR_BS_8; } while(0)
-// #define CS_LOW do { GPIOB->BSRR = GPIO_BSRR_BR_8; } while(0)
-// #define RESET_NUM 11
-// #define RESET_BIT (1<<RESET_NUM)
-// #define RESET_HIGH do { GPIOB->BSRR = GPIO_BSRR_BS_11; } while(0)
-// #define RESET_LOW  do { GPIOB->BSRR = GPIO_BSRR_BR_11; } while(0)
-// #define DC_NUM 14
-// #define DC_BIT (1<<DC_NUM)
-// #define DC_HIGH do { GPIOB->BSRR = GPIO_BSRR_BS_14; } while(0)
-// #define DC_LOW  do { GPIOB->BSRR = GPIO_BSRR_BR_14; } while(0)
-
-#define CS_NUM  13
+#define CS_NUM  8
 #define CS_BIT  (1<<CS_NUM)
-#define CS_HIGH do { GPIOA->BSRR = GPIO_BSRR_BS_13; } while(0)
-#define CS_LOW do { GPIOA->BSRR = GPIO_BSRR_BR_13; } while(0)
-#define RESET_NUM 12
+#define CS_HIGH do { GPIOB->BSRR = GPIO_BSRR_BS_8; } while(0)
+#define CS_LOW do { GPIOB->BSRR = GPIO_BSRR_BR_8; } while(0)
+#define RESET_NUM 11
 #define RESET_BIT (1<<RESET_NUM)
-#define RESET_HIGH do { GPIOA->BSRR = GPIO_BSRR_BS_12; } while(0)
-#define RESET_LOW  do { GPIOA->BSRR = GPIO_BSRR_BR_12; } while(0)
-#define DC_NUM 11
+#define RESET_HIGH do { GPIOB->BSRR = GPIO_BSRR_BS_11; } while(0)
+#define RESET_LOW  do { GPIOB->BSRR = GPIO_BSRR_BR_11; } while(0)
+#define DC_NUM 14
 #define DC_BIT (1<<DC_NUM)
-#define DC_HIGH do { GPIOA->BSRR = GPIO_BSRR_BS_11; } while(0)
-#define DC_LOW  do { GPIOA->BSRR = GPIO_BSRR_BR_11; } while(0)
+#define DC_HIGH do { GPIOB->BSRR = GPIO_BSRR_BS_14; } while(0)
+#define DC_LOW  do { GPIOB->BSRR = GPIO_BSRR_BR_14; } while(0)
 
+// #define CS_NUM  13
+// #define CS_BIT  (1<<CS_NUM)
+// #define CS_HIGH do { GPIOA->BSRR = GPIO_BSRR_BS_13; } while(0)
+// #define CS_LOW do { GPIOA->BSRR = GPIO_BSRR_BR_13; } while(0)
+// #define RESET_NUM 12
+// #define RESET_BIT (1<<RESET_NUM)
+// #define RESET_HIGH do { GPIOA->BSRR = GPIO_BSRR_BS_12; } while(0)
+// #define RESET_LOW  do { GPIOA->BSRR = GPIO_BSRR_BR_12; } while(0)
+// #define DC_NUM 11
+// #define DC_BIT (1<<DC_NUM)
+// #define DC_HIGH do { GPIOA->BSRR = GPIO_BSRR_BS_11; } while(0)
+// #define DC_LOW  do { GPIOA->BSRR = GPIO_BSRR_BR_11; } while(0)
+
+// ****** CHANGE WHEN SWITCH BETWEEN A AND B ********
 // Set the CS pin low if val is non-zero.
 // Note that when CS is being set high again, wait on SPI to not be busy.
 static void tft_select(int val)
@@ -48,7 +49,7 @@ static void tft_select(int val)
         while(SPI1->SR & SPI_SR_BSY);
         CS_HIGH;
     } else {
-        while((GPIOA->ODR & (CS_BIT)) == 0) {
+        while((GPIOB->ODR & (CS_BIT)) == 0) {
             ; // If CS is already low, this is an error.  Loop forever.
             // This has happened because something called a drawing subroutine
             // while one was already in process.  For instance, the main()

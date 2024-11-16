@@ -156,16 +156,24 @@ int main() {
     setbuf(stdin,0);
     setbuf(stdout,0);
     setbuf(stderr,0);
-      
-    // init_spi1_slow();
+    
 
-//    LCD_Reset();
     LCD_Setup();
-    //     return(EXIT_SUCCESS);
-    // LCD_Clear(GREEN);
-    // printf("a;sldjkfds\n");
-    // LCD_DrawRectangle(0, 0, 200, 200, 0x0f0f);
+    LCD_Clear(0x0000);
+    // LCD_DrawPoint(0, 200, 0xffff);
+    // LCD_DrawFillRectangle(0, 0, 200, 300, 0xffff);
 
+    // LCD_DrawChar(60, 150, 0x0000, 0xffff, 'B', 16, 0);
+    // LCD_DrawChar(80, 150, 0x0000, 0xffff, 'L', 16, 0);
+    // LCD_DrawChar(100, 150, 0x0000, 0xffff, 'A', 16, 0);
+    // LCD_DrawChar(120, 150, 0x0000, 0xffff, 'C', 16, 0);
+    // LCD_DrawChar(140, 150, 0x0000, 0xffff, 'K', 16, 0);
+    // LCD_DrawChar(160, 150, 0x0000, 0xffff, 'C', 16, 0);
+    // LCD_DrawChar(180, 150, 0x0000, 0xffff, 'A', 16, 0);
+    // LCD_DrawChar(200, 150, 0x0000, 0xffff, 'T', 16, 0);
+
+    // LCD_DrawRectangle(0, 0, 200, 200, 0x0f0f);
+    LCD_DrawBitmap(0, 0, dino_bitmap, 200, 200, 0x0000);
     // command_shell();
 
   
