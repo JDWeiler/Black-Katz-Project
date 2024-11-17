@@ -152,46 +152,51 @@ void init_tim7(void) {
     TIM7 -> CR1 |= TIM_CR1_CEN;
 }
 
+void refresh_game() {
+    if(dino_is_jumping) {
+        if(dino_y == 169) direction = 0;
+
+        if(direction) { 
+            dino_y--;
+        } else {
+            dino_y++;
+        }
+
+        update_dino(dino_bitmap, DINO_WIDTH, DINO_HEIGHT, dino_y, direction);
+    
+        if(dino_y == 224) dino_is_jumping = 0; //catch the dino once its done jumping to prevent it from jumping again
+    } else {
+        LCD_DrawPictureNew(0, dino_y, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
+    }
+
+    if(cacti_exists) {
+        cacti_x--;
+        update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
+        
+        if(cacti_x <= 96 && cacti_x > 0) {
+            if(!dino_is_jumping) {
+                game_over = 1; 
+                cacti_exists = 0;
+                LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+            } else {
+                cacti_x--;
+                update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
+            }
+        }
+
+        if(cacti_x == 0) {
+            cacti_x = 180;
+            cacti_exists = 0;
+            game_over = 1;
+            LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+        }
+    }
+}
+
 void TIM7_IRQHandler(void) {
     if (TIM7->SR & TIM_SR_UIF && !game_over) {
         TIM7->SR &= ~TIM_SR_UIF;
-        if(dino_is_jumping) {
-            if(dino_y == 169) direction = 0;
-
-            if(direction) { 
-                dino_y--;
-            } else {
-                dino_y++;
-            }
-
-            update_dino(dino_bitmap, DINO_WIDTH, DINO_HEIGHT, dino_y, direction);
-            
-            if(dino_y == 224) dino_is_jumping = 0; //catch the dino once its done jumping to prevent it from jumping again
-        } else {
-            LCD_DrawPictureNew(0, dino_y, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
-        }
-
-        if(cacti_exists) {
-            cacti_x--;
-            update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
-            
-            if(cacti_x <= 96) {
-                if(!dino_is_jumping) {
-                    game_over = 1; 
-                    cacti_exists = 0;
-                    LCD_DrawPictureNew(0, 0, player2win, 240, 320);
-                } else {
-                    cacti_x--;
-                    update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
-                }
-            }
-
-            if(cacti_x == 0) {
-                cacti_x = 180;
-                cacti_exists = 0;
-            }
-        }
-
+        refresh_game();
     }
 }
 
