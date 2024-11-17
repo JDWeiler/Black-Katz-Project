@@ -981,3 +981,29 @@ void LCD_DrawPicture(u16 x0, u16 y0, const Picture *pic)
     LCD_WriteData16_End();
     lcddev.select(0);
 }
+
+void dino_jump(Picture * dino) {
+    int dino_y = 224;
+
+    // upward
+    for(int i = 0; i <= 84; i++) {
+        dino_y--;
+        LCD_DrawPicture(0, dino_y, dino);
+
+    }
+    // downward
+    for(int i = 0; i <= 84; i++) {
+        dino_y++;
+        LCD_DrawPicture(0, dino_y, dino);
+    }
+}
+
+int dino_y = 0;
+
+/**
+ * direction : 1 = up, 0 = down
+*/
+void update_dino(Picture * dino, int dino_y, int direction) {
+    // direction = 1 so goin
+
+}
