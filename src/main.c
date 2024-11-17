@@ -129,7 +129,7 @@ int dino_y = 224; // starting height
 //TODO :: REPLACE THIS WITH BUTTON INTERRUPT FLAG
 int dino_is_jumping = 0; //0 if dino not jumping, 1 if dino is jumping...
 int direction = 1; // 0 = down, 1 = up
-int cacti_exists = 1;
+int cacti_exists = 0;
 int cacti_x = 180; // starting x value
 int game_over = 0; // 0 = game on ; 1 = game over
 
@@ -148,7 +148,8 @@ void init_tim7(void) {
 
     NVIC -> ISER[0] = 1 << TIM7_IRQn;
 
-    TIM7->CR1 |= TIM_CR1_CEN;
+    // TIM7->CR1 &= ~TIM_CR1_CEN;
+    TIM7 -> CR1 |= TIM_CR1_CEN;
 }
 
 void TIM7_IRQHandler(void) {
@@ -173,15 +174,71 @@ void TIM7_IRQHandler(void) {
         if(cacti_exists) {
             cacti_x--;
             update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
-            if(cacti_x == 96) {
-                cacti_exists = 0;
+            
+            if(cacti_x <= 96) {
                 if(!dino_is_jumping) {
                     game_over = 1; 
+                    cacti_exists = 0;
                     LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+                } else {
+                    cacti_x--;
+                    update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
                 }
             }
+
+            if(cacti_x == 0) {
+                cacti_x = 180;
+                cacti_exists = 0;
+            }
         }
+
     }
+}
+
+void togglexn(GPIO_TypeDef *port, int n) {
+  if(port->ODR & (1 << n)) { //change 1 to 0
+    port->ODR &= ~(1 << n);
+  } else{ //change 0 to 1
+    port->ODR |= (1 << n);
+  } 
+}
+
+// FROM LAB 2 FOR THE BUTTON TRIGGERED INTERRUPTS
+void initb() {
+    RCC-> AHBENR |= RCC_AHBENR_GPIOBEN;
+
+    GPIOB -> MODER &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER2 | GPIO_MODER_MODER6); // set pins 0,2 as input
+    GPIOB -> MODER |= GPIO_MODER_MODER6_0;
+    GPIOB -> PUPDR &= ~(GPIO_PUPDR_PUPDR0 | GPIO_PUPDR_PUPDR2); // reset pupdr
+    // GPIOB -> PUPDR |= GPIO_PUPDR_PUPDR0_1 | GPIO_PUPDR_PUPDR2_1; // pull down
+}
+
+void init_exti() {
+  RCC->APB2ENR |= RCC_APB2ENR_SYSCFGCOMPEN;
+
+  SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PB;
+  SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI2_PB;
+
+  EXTI->RTSR |= EXTI_RTSR_TR0;
+  EXTI->RTSR |= EXTI_RTSR_TR2;
+
+  EXTI->IMR |= EXTI_IMR_IM0;
+  EXTI->IMR |= EXTI_IMR_IM2;
+
+  NVIC->ISER[0] |= 1<<5;
+  NVIC->ISER[0] |= 1<<6;
+
+}
+
+void EXTI0_1_IRQHandler() {
+  EXTI->PR = EXTI_PR_PR0;
+  dino_is_jumping = 1;
+  togglexn(GPIOB, 6);
+}
+
+void EXTI2_3_IRQHandler() {
+  EXTI->PR = EXTI_PR_PR2;
+  cacti_exists = 1;
 }
 
 int main() {
@@ -196,13 +253,15 @@ int main() {
     LCD_Setup();
     LCD_Clear(0x0000);
 
+    initb();
+    init_exti();
     init_tim7();
-
     // command_shell();  
+
+    for(;;) {}
 }
 
-
-// EXTRA STUFF I AM KEEPING BC IM PARANOID SOMETHING IS GOING TO BREAK SO IGNORE 
+// EXTRA STUFF I AM KEEPING BC IM PARANOID SOMETHING IS GOING TO BREAK
 
 // ====================================================
 // INITIALIZE PICTURE STRUCTS
