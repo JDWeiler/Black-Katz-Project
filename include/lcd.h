@@ -96,8 +96,10 @@ typedef  struct {
 
 void LCD_DrawPicture(u16 x0, u16 y0, const Picture *pic);
 
+// FUNCTIONS THAT WE ADDED
+void LCD_DrawPictureNew(u16 x0, u16 y0, const char * pixel_data, int width, int height);
+void dino_jump(const char * pixel_data, int width, int height);
+void update_dino(const char * pixel_data, int width, int height, int dino_y, int direction);
+void update_cacti(const char * pixel_data, int width, int height, int cacti_x);
 
-// ADDED FUNCTIONS
-void dino_jump(Picture * dino);
-void update_dino(Picture * dino, int dino_y, int direction);
 #endif

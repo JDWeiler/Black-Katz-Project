@@ -982,28 +982,60 @@ void LCD_DrawPicture(u16 x0, u16 y0, const Picture *pic)
     lcddev.select(0);
 }
 
-void dino_jump(Picture * dino) {
+// USE THIS FUNCTION :: ALLOWS YOU TO DRAW IMAGES FROM INSIDE OF IRQ HANDLERS AND NO MORE MEMORY ALLOCATION FOR PIXEL DATA
+void LCD_DrawPictureNew(u16 x0, u16 y0, const char * pixel_data, int width, int height)
+{
+    lcddev.select(1);
+    u16 x1 = x0 + width - 1;
+    u16 y1 = y0 + height - 1;
+    // No error handling.  Just loop forever if out-of-bounds.
+    while (x0 >= lcddev.width)
+        ;
+    while (x1 >= lcddev.width)
+        ;
+    while (y0 >= lcddev.height)
+        ;
+    while (y1 >= lcddev.height)
+        ;
+    LCD_SetWindow(x0,y0,x1,y1);
+    LCD_WriteData16_Prepare();
+
+    u16 *data = (u16 *)pixel_data;
+    for(int y=0; y < height; y++) {
+        u16 *row = &data[y * width];
+        for(int x=0; x < width; x++)
+            LCD_WriteData16(*row++);
+    }
+
+    LCD_WriteData16_End();
+    lcddev.select(0);
+}
+
+void dino_jump(const char * pixel_data, int width, int height) {
     int dino_y = 224;
 
     // upward
-    for(int i = 0; i <= 84; i++) {
+    for(int i = 0; i <= 55; i++) {
         dino_y--;
-        LCD_DrawPicture(0, dino_y, dino);
+        LCD_DrawPictureNew(0, dino_y, pixel_data, width, height);
 
     }
     // downward
-    for(int i = 0; i <= 84; i++) {
+    for(int i = 0; i <= 55; i++) {
         dino_y++;
-        LCD_DrawPicture(0, dino_y, dino);
+        LCD_DrawPictureNew(0, dino_y, pixel_data, width, height);
     }
 }
 
-int dino_y = 0;
-
 /**
+ * should only be called once a flag is raised after button interrupt
+ * maybe we can have some sort of counter variable that counts up to 
  * direction : 1 = up, 0 = down
 */
-void update_dino(Picture * dino, int dino_y, int direction) {
-    // direction = 1 so goin
+void update_dino(const char * pixel_data, int width, int height, int dino_y, int direction) {
+    LCD_DrawPictureNew(0, dino_y, pixel_data, width, height);
+}
 
+void update_cacti(const char * pixel_data, int width, int height, int cacti_x) {
+    LCD_DrawPictureNew(cacti_x, 272, pixel_data, width, height);
 }
