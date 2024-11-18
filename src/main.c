@@ -138,7 +138,7 @@ int game_over = 0; // 0 = game on ; 1 = game over
 #define DINO_WIDTH 96
 #define CACTI_HEIGHT 48
 #define CACTI_WIDTH 48
-#define DINO_VELOCITY 3
+#define DINO_VELOCITY 4
 #define CACTI_VELOCITY 6
 
 //100 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
@@ -180,8 +180,8 @@ void refresh_game() {
         update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
         
         // collision detection
-        if(cacti_x <= 65 && cacti_x > 0) {
-            if(!dino_is_jumping) {
+        if(cacti_x <= 35 && cacti_x > 0) {
+            if(dino_y >= 178) {
                 game_over = 1; 
                 cacti_exists = 0;
                 LCD_DrawPictureNew(0, 0, player2win, 240, 320);
