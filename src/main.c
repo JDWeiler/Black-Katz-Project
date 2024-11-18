@@ -139,7 +139,7 @@ int game_over = 0; // 0 = game on ; 1 = game over
 #define CACTI_HEIGHT 48
 #define CACTI_WIDTH 48
 #define DINO_VELOCITY 4
-#define CACTI_VELOCITY 6
+#define CACTI_VELOCITY 5
 
 //100 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
 void init_tim7(void) {
