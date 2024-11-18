@@ -138,6 +138,8 @@ int game_over = 0; // 0 = game on ; 1 = game over
 #define DINO_WIDTH 96
 #define CACTI_HEIGHT 48
 #define CACTI_WIDTH 48
+#define DINO_VELOCITY 3
+#define CACTI_VELOCITY 6
 
 //100 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
 void init_tim7(void) {
@@ -154,41 +156,45 @@ void init_tim7(void) {
 
 void refresh_game() {
     if(dino_is_jumping) {
-        if(dino_y == 169) direction = 0;
+        if(dino_y <= 120) direction = 0;
 
         if(direction) { 
-            dino_y--;
+            dino_y -= DINO_VELOCITY;
         } else {
-            dino_y++;
+            dino_y += DINO_VELOCITY;
         }
 
         update_dino(dino_bitmap, DINO_WIDTH, DINO_HEIGHT, dino_y, direction);
     
-        if(dino_y == 224) dino_is_jumping = 0; //catch the dino once its done jumping to prevent it from jumping again
+        if(dino_y == 224) {   
+            //catch the dino once its done jumping to prevent it from jumping again
+            dino_is_jumping = 0; 
+            direction = 1;
+        }
     } else {
         LCD_DrawPictureNew(0, dino_y, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
     }
 
     if(cacti_exists) {
-        cacti_x--;
+        cacti_x -= CACTI_VELOCITY;
         update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
         
-        if(cacti_x <= 96 && cacti_x > 0) {
+        // collision detection
+        if(cacti_x <= 65 && cacti_x > 0) {
             if(!dino_is_jumping) {
                 game_over = 1; 
                 cacti_exists = 0;
                 LCD_DrawPictureNew(0, 0, player2win, 240, 320);
             } else {
-                cacti_x--;
+                cacti_x -= CACTI_VELOCITY;
                 update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
             }
         }
 
-        if(cacti_x == 0) {
+        if(cacti_x <= 0) {
             cacti_x = 180;
             cacti_exists = 0;
-            game_over = 1;
-            LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+            LCD_DrawFillRectangle(0, 272, 48, 320, 0x0000);
         }
     }
 }
@@ -238,6 +244,7 @@ void init_exti() {
 void EXTI0_1_IRQHandler() {
   EXTI->PR = EXTI_PR_PR0;
   dino_is_jumping = 1;
+//   dino_y = 224;
   togglexn(GPIOB, 6);
 }
 
@@ -261,54 +268,7 @@ int main() {
     initb();
     init_exti();
     init_tim7();
-    // command_shell();  
 
-    for(;;) {}
+    // LCD_DrawChar(0, 0, 0x0000, 0xffff, 'd', 16, 0);
+    // for(;;) {}
 }
-
-// EXTRA STUFF I AM KEEPING BC IM PARANOID SOMETHING IS GOING TO BREAK
-
-// ====================================================
-// INITIALIZE PICTURE STRUCTS
-// dino = malloc(sizeof(Picture) + (DINO_WIDTH * DINO_HEIGHT * 2));
-// dino -> width = DINO_WIDTH;
-// dino -> height = DINO_HEIGHT;
-// dino -> bytes_per_pixel = 2;
-
-// for(int i = 0; i < (DINO_WIDTH * DINO_HEIGHT); i++) {
-//     ((u16 *) dino -> pixel_data)[i] = dino_bitmap[i];
-// }
-
-// cacti = malloc(sizeof(Picture) + (CACTI_WIDTH * CACTI_HEIGHT * 2));
-// cacti->width = CACTI_WIDTH;
-// cacti->height = CACTI_HEIGHT;
-// cacti->bytes_per_pixel = 2;
-
-// for(int i = 0; i < (CACTI_WIDTH * CACTI_HEIGHT); i++) {
-//     ((u16 *) cacti -> pixel_data)[i] = cacti_bitmap[i];
-// }
-// ====================================================
-
-// LCD_DrawPictureNew(0, 224, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
-// int cacti_x = 180;
-// int dino_y = 224;
-// while(1) {
-//     dino_jump(dino);
-//     for(int i = 0; i <= 84; i++) {
-//         cacti_x--;
-//         dino_y--;
-//         LCD_DrawPicture(cacti_x, 272, cacti);
-//         // cacti_left(1, cacti);
-//         LCD_DrawPicture(0, dino_y, dino);
-
-//     }
-//     for(int i = 0; i <= 84; i++) {
-//         dino_y++;
-//         LCD_DrawPicture(0, dino_y, dino);
-//     }
-//     LCD_DrawFillRectangle(84, 272, 132, 320, 0x0000);
-//     nano_wait(1000000000);
-//     cacti_x = 180;
-//     dino_y = 224;
-// }
-// ====================================================

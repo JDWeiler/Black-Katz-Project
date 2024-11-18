@@ -677,7 +677,7 @@ void LCD_DrawFillTriangle(u16 x0,u16 y0, u16 x1,u16 y1, u16 x2,u16 y2, u16 c)
     lcddev.select(0);
 }
 
-// A 12x6 font
+// // A 12x6 font
 const unsigned char asc2_1206[95][12]={
 {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},/*" ",0*/
 {0x00,0x00,0x04,0x04,0x04,0x04,0x04,0x04,0x00,0x04,0x00,0x00},/*"!",1*/
@@ -1003,8 +1003,9 @@ void LCD_DrawPictureNew(u16 x0, u16 y0, const char * pixel_data, int width, int 
     u16 *data = (u16 *)pixel_data;
     for(int y=0; y < height; y++) {
         u16 *row = &data[y * width];
-        for(int x=0; x < width; x++)
+        for(int x=0; x < width; x++){
             LCD_WriteData16(*row++);
+        }
     }
 
     LCD_WriteData16_End();
@@ -1015,14 +1016,14 @@ void dino_jump(const char * pixel_data, int width, int height) {
     int dino_y = 224;
 
     // upward
-    for(int i = 0; i <= 55; i++) {
-        dino_y--;
+    for(int i = 0; i <= 50; i++) {
+        dino_y=-1;
         LCD_DrawPictureNew(0, dino_y, pixel_data, width, height);
 
     }
     // downward
-    for(int i = 0; i <= 55; i++) {
-        dino_y++;
+    for(int i = 0; i <= 50; i++) {
+        dino_y+=1;
         LCD_DrawPictureNew(0, dino_y, pixel_data, width, height);
     }
 }
