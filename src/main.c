@@ -1,239 +1,274 @@
-/**
-  ******************************************************************************
-  * @file    main.c
-  * @author  Weili An, Niraj Menon
-  * @date    Feb 3, 2024
-  * @brief   ECE 362 Lab 6 Student template
-  ******************************************************************************
-*/
-
-
 #include "stm32f0xx.h"
+#include "../include/commands.h"
+#include "../include/lcd.h"
+#include "../include/fifo.h"
+#include "../include/tty.h"
+#include "bitmaps.c"
+// #include "../include/movement.h"
+// #include "bitmaps.c"
+#include <stdio.h>
 
-void set_char_msg(int, char);
-void nano_wait(unsigned int);
-void game(void);
+
+/**
+ * 
+ * 
+ * 
+ * FROM LAB 7 -------------------------------------------
+ * 
+ * 
+ * 
+*/
 void internal_clock();
-void check_wiring();
-void autotest();
 
-//===========================================================================
-// Configure GPIOC
-//===========================================================================
+void init_usart5() {
+    RCC -> AHBENR |= RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIODEN;
 
+    GPIOC -> MODER &= ~GPIO_MODER_MODER12;
+    GPIOC -> MODER |= GPIO_MODER_MODER12_1;
 
+    GPIOD -> MODER &= ~GPIO_MODER_MODER2;
+    GPIOD -> MODER |= GPIO_MODER_MODER2_1;
 
-uint8_t col; // the column being scanned
+    GPIOC -> AFR[1] &= 0xFFF0FFFF;
+    GPIOC -> AFR[1] |= 0x00020000;
+    GPIOD -> AFR[0] &= 0xFFFFF0FF;
+    GPIOD -> AFR[0] |= 0x00000200;
 
-void drive_column(int);   // energize one of the column outputs
-int  read_rows();         // read the four row inputs
-void update_history(int col, int rows); // record the buttons of the driven column
-char get_key_event(void); // wait for a button event (press or release)
-char get_keypress(void);  // wait for only a button press event.
-float getfloat(void);     // read a floating-point number from keypad
-void show_keys(void);     // demonstrate get_key_event()
+    RCC -> APB1ENR |= RCC_APB1ENR_USART5EN;
 
-//===========================================================================
-// Bit Bang SPI LED Array
-//===========================================================================
-int msg_index = 0;
-uint16_t msg[8] = { 0x0000, 0x0100,0x0200,0x0300,0x0400,0x0500,0x0600,0x0700, 0x0800};
-extern const char font[];
-int countdown = 120;
-//===========================================================================
-// Configure PB12 (CS), PB13 (SCK), and PB15 (SDI) for outputs
-//===========================================================================
-void setup_bb(void) {
-    RCC -> AHBENR |= RCC_AHBENR_GPIOBEN;
+    USART5 -> CR1 &= ~USART_CR1_UE;
 
-    GPIOB->MODER &= ~(0x3 << (12 * 2)); 
-    GPIOB->MODER |= (0x1 << (12 * 2));   
+    USART5 -> CR1 &= ~(USART_CR1_M0 | USART_CR1_M1);
 
-    GPIOB->MODER &= ~(0x3 << (13 * 2));  
-    GPIOB->MODER |= (0x1 << (13 * 2));   
+    USART5 -> CR2 &= ~USART_CR2_STOP;
 
-    GPIOB->MODER &= ~(0x3 << (15 * 2));  
-    GPIOB->MODER |= (0x1 << (15 * 2));  
+    USART5 -> CR1 &= ~USART_CR1_PCE;
 
-    GPIOB->ODR |= (1 << 12);   
-    GPIOB->ODR &= ~(1 << 13);  
-    GPIOB->ODR &= ~(1 << 15);
+    USART5 -> CR1 &= ~USART_CR1_OVER8;
+
+    USART5 -> BRR = 0x1A1;
+
+    USART5 -> CR1 |= USART_CR1_TE | USART_CR1_RE;
+
+    USART5 -> CR1 |= USART_CR1_UE;
+
+    while(!((USART5 -> ISR & USART_ISR_REACK) && (USART5 -> ISR & USART_ISR_TEACK))) {}
 }
 
-void small_delay(void) {
-    nano_wait(50000);
+#define FIFOSIZE 16
+char serfifo[FIFOSIZE];
+int seroffset = 0;
+
+void enable_tty_interrupt(void) {
+    // TODO
+    USART5 -> CR1 |= USART_CR1_RXNEIE;
+    USART5 -> CR3 |= USART_CR3_DMAR;
+    NVIC -> ISER[0] |= 1 << 29;
+
+    RCC->AHBENR |= RCC_AHBENR_DMA2EN;
+    DMA2->CSELR |= DMA2_CSELR_CH2_USART5_RX;
+    DMA2_Channel2->CCR &= ~DMA_CCR_EN;  // First make sure DMA is turned off
+    
+    DMA2_Channel2 -> CMAR = &serfifo;
+    DMA2_Channel2 -> CPAR = &(USART5 -> RDR);
+    DMA2_Channel2 -> CNDTR = FIFOSIZE;
+
+    DMA2_Channel2 -> CCR &= ~DMA_CCR_DIR;
+    DMA2_Channel2 -> CCR &= ~(DMA_CCR_TEIE | DMA_CCR_HTIE);
+    DMA2_Channel2 -> CCR |= DMA_CCR_MINC;
+    DMA2_Channel2 -> CCR &= ~DMA_CCR_PINC;
+    DMA2_Channel2 -> CCR |= DMA_CCR_CIRC;
+    DMA2_Channel2 -> CCR &= ~DMA_CCR_MEM2MEM;
+    DMA2_Channel2 -> CCR |= DMA_CCR_PL;
+
+    DMA2_Channel2->CCR |= DMA_CCR_EN;
+
 }
 
-//===========================================================================
-// Set the MOSI bit, then set the clock high and low.
-// Pause between doing these steps with small_delay().
-//===========================================================================
-void bb_write_bit(int val) {
-    // CS (PB12)
-    // SCK (PB13)
-    // SDI (PB15)
-    if (val) {
-        GPIOB->ODR |= (1 << 15);  
-    } else {
-        GPIOB->ODR &= ~(1 << 15);  
+// Works like line_buffer_getchar(), but does not check or clear ORE nor wait on new characters in USART
+char interrupt_getchar() {
+
+    // Wait for a newline to complete the buffer.
+    while(fifo_newline(&input_fifo) == 0) {
+        asm volatile ("wfi");
     }
-    small_delay();
-
-    
-    GPIOB->ODR |= (1 << 13);
-    small_delay();
-
-    
-    GPIOB->ODR &= ~(1 << 13);
+    // Return a character from the line buffer.
+    char ch = fifo_remove(&input_fifo);
+    return ch;
 }
 
-//===========================================================================
-// Set CS (PB12) low,
-// write 16 bits using bb_write_bit,
-// then set CS high.
-//===========================================================================
-void bb_write_halfword(int halfword) {
-    GPIOB->ODR &= ~(1 << 12);  // Clear PB12 (CS)
-
-    for (int i = 15; i >= 0; i--) {
-        int bit = (halfword >> i) & 1;
-        bb_write_bit(bit);
+int __io_putchar(int c) {
+    // TODO
+    if(c == '\n') {
+        while(!(USART5->ISR & USART_ISR_TXE));
+        USART5 -> TDR = '\r';
     }
 
-    GPIOB->ODR |= (1 << 12);
+    while(!(USART5->ISR & USART_ISR_TXE));
+    USART5->TDR = c;
+    return c;
 }
 
-//===========================================================================
-// Continually bitbang the msg[] array.
-//===========================================================================
-void drive_bb(void) {
-    for(;;)
-        for(int d=0; d<8; d++) {
-            bb_write_halfword(msg[d]);
-            nano_wait(100000); // wait 1 ms between digits
-        }
+int __io_getchar(void) {
+    // TODO Use interrupt_getchar() instead of line_buffer_getchar()
+    return interrupt_getchar();
 }
 
-//============================================================================
-// Configure Timer 15 for an update rate of 1 kHz.
-// Trigger the DMA channel on each update.
-// Copy this from lab 4 or lab 5.
-//============================================================================
-void init_tim15(void) {
-    RCC -> APB2ENR |= RCC_APB2ENR_TIM15EN;
-
-    TIM15 -> PSC = 47;
-    TIM15 -> ARR = 999;
-    
-    TIM15 -> DIER |= TIM_DIER_UDE;
-    TIM15 -> CR1 = TIM_CR1_CEN;
+void USART3_8_IRQHandler(void) {
+    while(DMA2_Channel2->CNDTR != sizeof serfifo - seroffset) {
+        if (!fifo_full(&input_fifo))
+            insert_echo_char(serfifo[seroffset]);
+        seroffset = (seroffset + 1) % sizeof serfifo;
+    }
 }
 
 
-//===========================================================================
-// Configure timer 7 to invoke the update interrupt at 1kHz
-// Copy from lab 4 or 5.
-//===========================================================================
+// NEW STUFF NOT FROM LAB 7
+
+int dino_y = 224; // starting height
+//TODO :: REPLACE THIS WITH BUTTON INTERRUPT FLAG
+int dino_is_jumping = 0; //0 if dino not jumping, 1 if dino is jumping...
+int direction = 1; // 0 = down, 1 = up
+int cacti_exists = 0;
+int cacti_x = 180; // starting x value
+int game_over = 0; // 0 = game on ; 1 = game over
+
+// 96x96 dino
+#define DINO_HEIGHT 96
+#define DINO_WIDTH 96
+#define CACTI_HEIGHT 48
+#define CACTI_WIDTH 48
+#define DINO_VELOCITY 4
+#define CACTI_VELOCITY 5
+
+//100 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
 void init_tim7(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
+    TIM7->PSC = 4799;
+    TIM7->ARR = 99;
+    TIM7->DIER |= TIM_DIER_UIE;
 
-    TIM7->PSC = 47999;
-    TIM7->ARR = 999;
+    NVIC -> ISER[0] = 1 << TIM7_IRQn;
 
-    TIM7 -> DIER |= TIM_DIER_UIE;
-    NVIC -> ISER[0] |= 1 << TIM7_IRQn;
-    TIM7 -> CR1 = TIM_CR1_CEN;
-
+    // TIM7->CR1 &= ~TIM_CR1_CEN;
+    TIM7 -> CR1 |= TIM_CR1_CEN;
 }
 
+void refresh_game() {
+    if(dino_is_jumping) {
+        if(dino_y <= 120) direction = 0;
 
-void update_display(int value) {
-    int hundreds = value / 100;
-    int tens = (value / 10) % 10;
-    int ones = value % 10;
+        if(direction) { 
+            dino_y -= DINO_VELOCITY;
+        } else {
+            dino_y += DINO_VELOCITY;
+        }
+
+        update_dino(dino_bitmap, DINO_WIDTH, DINO_HEIGHT, dino_y, direction);
     
-    msg[5] = (msg[5] & ~0x7F) | font[hundreds +'0'];
-    msg[6] = (msg[6] & ~0x7F) | font[tens +'0'];
-    msg[7] = (msg[7] & ~0x7F) | font[ones +'0'];
-
-}
-
-void TIM7_IRQHandler(void){
-    TIM7->SR &= ~TIM_SR_UIF;
-    if (countdown > 0) {
-        countdown--;
+        if(dino_y == 224) {   
+            //catch the dino once its done jumping to prevent it from jumping again
+            dino_is_jumping = 0; 
+            direction = 1;
+        }
+    } else {
+        LCD_DrawPictureNew(0, dino_y, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
     }
-    update_display(countdown);
+
+    if(cacti_exists) {
+        cacti_x -= CACTI_VELOCITY;
+        update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
+        
+        // collision detection
+        if(cacti_x <= 35 && cacti_x > 0) {
+            if(dino_y >= 178) {
+                game_over = 1; 
+                cacti_exists = 0;
+                LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+            } else {
+                cacti_x -= CACTI_VELOCITY;
+                update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
+            }
+        }
+
+        if(cacti_x <= 0) {
+            cacti_x = 180;
+            cacti_exists = 0;
+            LCD_DrawFillRectangle(0, 272, 48, 320, 0x0000);
+        }
+    }
 }
 
-void init_buttons(void) {
-    RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-
-   // pa0 input with pull-up
-    GPIOA->MODER &= ~(0x3 << (0 * 2)); 
-    GPIOA->PUPDR &= ~(0x3 << (0 * 2));  
-    GPIOA->PUPDR |= (0x1 << (0 * 2));   
-
-    // pa1 as input with pull-up
-    GPIOA->MODER &= ~(0x3 << (1 * 2));  
-    GPIOA->PUPDR &= ~(0x3 << (1 * 2));  
-    GPIOA->PUPDR |= (0x1 << (1 * 2));   
+void TIM7_IRQHandler(void) {
+    if (TIM7->SR & TIM_SR_UIF && !game_over) {
+        TIM7->SR &= ~TIM_SR_UIF;
+        refresh_game();
+    }
 }
 
-//is jump button pressed??
-uint8_t is_jump_button_pressed(void) {
-    return !(GPIOA->IDR & (1 << 0));  //1 press
+void togglexn(GPIO_TypeDef *port, int n) {
+  if(port->ODR & (1 << n)) { //change 1 to 0
+    port->ODR &= ~(1 << n);
+  } else{ //change 0 to 1
+    port->ODR |= (1 << n);
+  } 
 }
 
-//dino send
-uint8_t is_obstacle_button_pressed(void) {
-    return !(GPIOA->IDR & (1 << 1));  //1 press
+// FROM LAB 2 FOR THE BUTTON TRIGGERED INTERRUPTS
+void initb() {
+    RCC-> AHBENR |= RCC_AHBENR_GPIOBEN;
+
+    GPIOB -> MODER &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER2 | GPIO_MODER_MODER6); // set pins 0,2 as input
+    GPIOB -> MODER |= GPIO_MODER_MODER6_0;
+    GPIOB -> PUPDR &= ~(GPIO_PUPDR_PUPDR0 | GPIO_PUPDR_PUPDR2); // reset pupdr
+    // GPIOB -> PUPDR |= GPIO_PUPDR_PUPDR0_1 | GPIO_PUPDR_PUPDR2_1; // pull down
 }
 
-void setup_tim3(void) {
-    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-    RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+void init_exti() {
+  RCC->APB2ENR |= RCC_APB2ENR_SYSCFGCOMPEN;
 
-    GPIOC->MODER &= ~(0x3 << (6 * 2));
-    GPIOC->MODER |= (0x2 << (6 * 2));
-    GPIOC->AFR[0] &= ~(0xF << (6 * 4));
+  SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PB;
+  SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI2_PB;
 
-    TIM3->PSC = 47999;
-    TIM3->ARR = 999;
-    TIM3->CCMR1 &= ~TIM_CCMR1_OC1M;
-    TIM3->CCMR1 |= (0x6 << 4);
-    TIM3->CCER |= TIM_CCER_CC1E;
-    TIM3->CR1 |= TIM_CR1_CEN;
+  EXTI->RTSR |= EXTI_RTSR_TR0;
+  EXTI->RTSR |= EXTI_RTSR_TR2;
+
+  EXTI->IMR |= EXTI_IMR_IM0;
+  EXTI->IMR |= EXTI_IMR_IM2;
+
+  NVIC->ISER[0] |= 1<<5;
+  NVIC->ISER[0] |= 1<<6;
+
 }
 
-void play_buzzer(void) {
-    TIM3->CCR1 = 500;
+void EXTI0_1_IRQHandler() {
+  EXTI->PR = EXTI_PR_PR0;
+  dino_is_jumping = 1;
+//   dino_y = 224;
+  togglexn(GPIOB, 6);
 }
 
-void stop_buzzer(void) {
-    TIM3->CCR1 = 0;
+void EXTI2_3_IRQHandler() {
+  EXTI->PR = EXTI_PR_PR2;
+  cacti_exists = 1;
 }
-void pl_buzzer(void) {
-    // Simulate the buzzer by blinking an LED (for testing)
-    GPIOC -> ODR |= (1 << 8);  // Turn on LED (or buzzer in the future)
-    nano_wait(1000000);       // Delay to simulate the sound duration
-    //GPIOC->ODR &= ~(1 << 7); // Turn off LED (or buzzer in the future)
-    nano_wait(1000000);       // Delay between blinks
-}
-//===========================================================================
-// Main function
-//===========================================================================
 
-int main(void) {
-     internal_clock();
-    pl_buzzer();
-    // Initialize ports and timers
-    setup_bb();
-    init_tim7();
-    init_buttons();
-    setup_tim3();
+int main() {
+    internal_clock();
+    init_usart5();
+    enable_tty_interrupt();
     
-    // Display the initial countdown value
-    update_display(countdown);
-    drive_bb();
+    setbuf(stdin,0);
+    setbuf(stdout,0);
+    setbuf(stderr,0);
+    
+    LCD_Setup();
+    LCD_Clear(0x0000);
+
+    initb();
+    init_exti();
+    init_tim7();
+
+    // LCD_DrawChar(0, 0, 0x0000, 0xffff, 'd', 16, 0);
+    // for(;;) {}
 }
