@@ -184,7 +184,7 @@ void refresh_game() {
             if(dino_y >= 178) {
                 game_over = 1; 
                 cacti_exists = 0;
-                LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+                draw_game_over(player2wins);
             } else {
                 cacti_x -= CACTI_VELOCITY;
                 update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
@@ -197,6 +197,12 @@ void refresh_game() {
             LCD_DrawFillRectangle(0, 272, 48, 320, 0x0000);
         }
     }
+}
+
+void draw_game_over(int16_t * winner) {
+    LCD_DrawPictureNew(20, 20, game_over_bitmap, 200, 20); // game over
+    LCD_DrawPictureNew(20, 80, player, 150, 20); // player
+    LCD_DrawPictureNew(45, 120, winner, 150, 20); //# wins!
 }
 
 void TIM7_IRQHandler(void) {
