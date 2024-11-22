@@ -132,17 +132,17 @@ int direction = 1; // 0 = down, 1 = up
 int cacti_exists = 0;
 int cacti_x = 180; // starting x value
 int game_over = 0; // 0 = game on ; 1 = game over
-int countdown = 10;
+int countdown = 30;
 
 // 96x96 dino
 #define DINO_HEIGHT 96
 #define DINO_WIDTH 96
 #define CACTI_HEIGHT 48
 #define CACTI_WIDTH 48
-#define DINO_VELOCITY 6
-#define CACTI_VELOCITY 5
+#define DINO_VELOCITY 4
+#define CACTI_VELOCITY 7
 
-//100 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
+//50 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
 void init_tim7(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
     TIM7->PSC = 4799;
@@ -161,18 +161,113 @@ void sound_off(){
     TIM3->CR1 &= ~TIM_CR1_CEN;
 }
 
-void refresh_game() {
-    if(countdown == 0){
-        game_over = 1;
-        
-        LCD_DrawPictureNew(0, 0, player2win, 240, 320);
-        LCD_Clear(RED);
+void game_over_sound_effect() {
+    for(int i = 0; i < 500 ; i += 25) {
+        TIM3 -> ARR = 1923 + i;
+        sound_on();
+        nano_wait(100000000);
         sound_off();
     }
-    if(dino_is_jumping && !game_over) {
-        sound_on();
-        if(dino_y <= 120) direction = 0;
+}
 
+void jump_sound_effect(int frequency) {
+    // for(int i = 0; i < 700 ; i += 100) {
+    //     TIM3 -> ARR = 1923 - i;
+    //     sound_on();
+    //     nano_wait(50000000);
+    //     sound_off();
+    // }
+
+    sound_off();
+    TIM3 -> ARR = frequency;
+    sound_on();
+    nano_wait(25000000);
+    sound_off();
+}
+
+void draw_game_over(int16_t * winner) {
+    LCD_Clear(0x0000);
+    LCD_DrawPictureNew(20, 20, game_over_bitmap, 200, 20); // game over
+    LCD_DrawPictureNew(20, 80, player, 150, 20); // player
+    LCD_DrawPictureNew(45, 120, winner, 150, 20); //# wins!
+    game_over_sound_effect();
+}
+
+int frequency = 1923;
+
+
+void make_clouds() {
+    LCD_DrawPictureNew(10, 10, cloud1, 50, 30);
+    LCD_DrawPictureNew(160, 60, cloud1, 50, 30);
+    LCD_DrawPictureNew(40, 90, cloud1, 50, 30);
+    LCD_DrawPictureNew(90, 120, cloud2, 50, 30);
+    LCD_DrawPictureNew(130, 20, cloud2, 50, 30);
+}
+
+void update_clock(int value) {
+    int tens = (value / 10) % 10;
+    int ones = value % 10;
+
+    switch(tens) {
+        case(0) : LCD_DrawPictureNew(210, 0, _0, 15, 15);
+        break;
+        case(1) : LCD_DrawPictureNew(210, 0, _1, 15, 15);
+        break;
+        case(2) : LCD_DrawPictureNew(210, 0, _2, 15, 15);
+        break;
+        case(3) : LCD_DrawPictureNew(210, 0, _3, 15, 15);
+        break;
+    }
+
+    switch(ones) {
+        case(0) : LCD_DrawPictureNew(225, 0, _0, 15, 15);
+        break;
+        case(1) : LCD_DrawPictureNew(225, 0, _1, 15, 15);
+        break;
+        case(2) : LCD_DrawPictureNew(225, 0, _2, 15, 15);
+        break;
+        case(3) : LCD_DrawPictureNew(225, 0, _3, 15, 15);
+        break;
+        case(4) : LCD_DrawPictureNew(225, 0, _4, 15, 15);
+        break;
+        case(5) : LCD_DrawPictureNew(225, 0, _5, 15, 15);
+        break;
+        case(6) : LCD_DrawPictureNew(225, 0, _6, 15, 15);
+        break;
+        case(7) : LCD_DrawPictureNew(225, 0, _7, 15, 15);
+        break;
+        case(8) : LCD_DrawPictureNew(225, 0, _8, 15, 15);
+        break;
+        case(9) : LCD_DrawPictureNew(225, 0, _9, 15, 15);
+        break;
+    }
+    
+}
+
+void refresh_game() {
+    make_clouds();
+    if(countdown == 0){
+        game_over = 1;
+        cacti_exists = 0;
+        draw_game_over(player1wins);
+        sound_off();
+    }
+
+    update_clock(countdown);
+
+    if(dino_is_jumping && !game_over) {
+        // if(direction) sound_on();
+
+        if(frequency >= 1923 - 600) {
+            frequency -= 100;
+            jump_sound_effect(frequency);
+        }
+
+        if(dino_y <= 160) {
+            direction = 0;
+            sound_off();
+        }
+        
         if(direction) { 
             dino_y -= DINO_VELOCITY;
         } else {
@@ -185,43 +280,38 @@ void refresh_game() {
             //catch the dino once its done jumping to prevent it from jumping again
             dino_is_jumping = 0; 
             direction = 1;
+            frequency = 1923;
         }
         
     } else if(!game_over){
         LCD_DrawPictureNew(0, dino_y, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
-        sound_off();
     }
 
     if(cacti_exists && !game_over) {
         cacti_x -= CACTI_VELOCITY;
-        update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
         
-        // collision detection
-        if(cacti_x <= 35 && cacti_x > 0) {
-            if(dino_y >= 178) {
-                game_over = 1; 
-                cacti_exists = 0;
-                LCD_DrawPictureNew(0, 0, player2win, 240, 320);
-                sound_off();
-            } else {
-                cacti_x -= CACTI_VELOCITY;
-                update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
-            }
-        }
-
         if(cacti_x <= 0) {
             cacti_x = 180;
             cacti_exists = 0;
             LCD_DrawFillRectangle(0, 272, 48, 320, 0x0000);
+        } else if(cacti_x <= 35) { // collision detection
+            if(dino_y >= 178) {
+                game_over = 1; 
+                cacti_exists = 0;
+                draw_game_over(player2wins);
+                sound_off();
+            } else {
+                update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
+                LCD_DrawFillRectangle(cacti_x + 48, 272, 240, 320, 0x0000);
+            }
+        } else {
+            update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
+            LCD_DrawFillRectangle(cacti_x + 48, 272, 240, 320, 0x0000);
         }
+
     }
 }
 
-void draw_game_over(int16_t * winner) {
-    LCD_DrawPictureNew(20, 20, game_over_bitmap, 200, 20); // game over
-    LCD_DrawPictureNew(20, 80, player, 150, 20); // player
-    LCD_DrawPictureNew(45, 120, winner, 150, 20); //# wins!
-}
 
 void TIM7_IRQHandler(void) {
     if (TIM7->SR & TIM_SR_UIF && !game_over) {
@@ -265,15 +355,13 @@ void init_exti() {
 
 }
 
-
-
-
 void EXTI0_1_IRQHandler() {
   EXTI->PR = EXTI_PR_PR0;
   dino_is_jumping = 1;
 //   dino_y = 224;
 
   togglexn(GPIOB, 6);
+//   jump_sound_effect();
 }
 
 void EXTI2_3_IRQHandler() {
@@ -438,7 +526,6 @@ int main() {
     init_usart5();
     enable_tty_interrupt();
 
-   
     setbuf(stdin,0);
     setbuf(stdout,0);
     setbuf(stderr,0);
@@ -451,7 +538,6 @@ int main() {
     init_tim6();
     init_tim7();
     setup_tim3();
-
     setup_bb();
     
     update_display(countdown);
