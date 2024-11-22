@@ -134,8 +134,8 @@ int game_over = 0; // 0 = game on ; 1 = game over
 int countdown = 30;
 int countdown_countdown = 0;
 int frequency = 1923;
-int DINO_VELOCITY = 4;
-int CACTI_VELOCITY = 6;
+int DINO_VELOCITY = 3;
+int CACTI_VELOCITY = 4;
 int start_game = 0; 
 
 // 96x96 dino
@@ -280,8 +280,8 @@ void refresh_game() {
         DINO_VELOCITY += 1;
         CACTI_VELOCITY += 1;
     } else if (countdown == 10 && countdown_countdown == 0) {
-        DINO_VELOCITY++;
-        CACTI_VELOCITY++;
+        DINO_VELOCITY += 2;
+        CACTI_VELOCITY += 2;
     } else if (countdown == 5 && countdown_countdown == 0) {
         DINO_VELOCITY++;
         CACTI_VELOCITY++;
@@ -322,14 +322,16 @@ void refresh_game() {
             dino_y += DINO_VELOCITY;
         }
 
-        update_dino(dino_bitmap, DINO_WIDTH, DINO_HEIGHT, dino_y, direction);
     
-        if(dino_y == 224) {   
+        if(dino_y >= 224) {   
             //catch the dino once its done jumping to prevent it from jumping again
             dino_is_jumping = 0; 
             direction = 1;
             frequency = 1923;
+            dino_y = 224;
         }
+
+        update_dino(dino_bitmap, DINO_WIDTH, DINO_HEIGHT, dino_y, direction);
         
     } else if(!game_over){
         LCD_DrawPictureNew(0, dino_y, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
