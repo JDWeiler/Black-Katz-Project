@@ -1035,6 +1035,9 @@ void dino_jump(const char * pixel_data, int width, int height) {
 */
 void update_dino(const char * pixel_data, int width, int height, int dino_y, int direction) {
     LCD_DrawPictureNew(0, dino_y, pixel_data, width, height);
+    if(dino_y <= 310) {
+        LCD_DrawFillRectangle(0, dino_y + 96, 96, dino_y + 116, 0x0000);
+    }
 }
 
 void update_cacti(const char * pixel_data, int width, int height, int cacti_x) {

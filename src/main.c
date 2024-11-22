@@ -122,7 +122,6 @@ void USART3_8_IRQHandler(void) {
     }
 }
 
-
 // NEW STUFF NOT FROM LAB 7
 
 int dino_y = 224; // starting height
@@ -133,14 +132,16 @@ int cacti_exists = 0;
 int cacti_x = 180; // starting x value
 int game_over = 0; // 0 = game on ; 1 = game over
 int countdown = 30;
+int countdown_countdown = 0;
+int frequency = 1923;
+int DINO_VELOCITY = 4;
+int CACTI_VELOCITY = 6;
 
 // 96x96 dino
 #define DINO_HEIGHT 96
 #define DINO_WIDTH 96
 #define CACTI_HEIGHT 48
 #define CACTI_WIDTH 48
-#define DINO_VELOCITY 4
-#define CACTI_VELOCITY 7
 
 //50 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
 void init_tim7(void) {
@@ -181,7 +182,7 @@ void jump_sound_effect(int frequency) {
     sound_off();
     TIM3 -> ARR = frequency;
     sound_on();
-    nano_wait(25000000);
+    nano_wait(20000000);
     sound_off();
 }
 
@@ -192,8 +193,6 @@ void draw_game_over(int16_t * winner) {
     LCD_DrawPictureNew(45, 120, winner, 150, 20); //# wins!
     game_over_sound_effect();
 }
-
-int frequency = 1923;
 
 
 void make_clouds() {
@@ -244,8 +243,31 @@ void update_clock(int value) {
     
 }
 
+void start_menu_on() {
+    LCD_DrawPictureNew(85, 300, start, 70, 10);
+}
+
 void refresh_game() {
     make_clouds();
+
+    if(countdown == 20 && countdown_countdown == 0) {
+        DINO_VELOCITY += 1;
+        CACTI_VELOCITY += 1;
+    } else if (countdown == 10 && countdown_countdown == 0) {
+        DINO_VELOCITY++;
+        CACTI_VELOCITY++;
+    } else if (countdown == 5 && countdown_countdown == 0) {
+        DINO_VELOCITY++;
+        CACTI_VELOCITY++;
+    }
+    
+    countdown_countdown++;
+
+    if(countdown_countdown == 20) {
+        countdown --;
+        countdown_countdown = 0;
+    }
+
     if(countdown == 0){
         game_over = 1;
         cacti_exists = 0;
@@ -302,30 +324,21 @@ void refresh_game() {
                 sound_off();
             } else {
                 update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
-                LCD_DrawFillRectangle(cacti_x + 48, 272, 240, 320, 0x0000);
+                LCD_DrawFillRectangle(cacti_x + 48, 272, cacti_x + 55, 320, 0x0000);
             }
         } else {
             update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
-            LCD_DrawFillRectangle(cacti_x + 48, 272, 240, 320, 0x0000);
+            LCD_DrawFillRectangle(cacti_x + 48, 272, cacti_x + 55, 320, 0x0000);
         }
 
     }
 }
-
 
 void TIM7_IRQHandler(void) {
     if (TIM7->SR & TIM_SR_UIF && !game_over) {
         TIM7->SR &= ~TIM_SR_UIF;
         refresh_game();
     }
-}
-
-void togglexn(GPIO_TypeDef *port, int n) {
-  if(port->ODR & (1 << n)) { //change 1 to 0
-    port->ODR &= ~(1 << n);
-  } else{ //change 0 to 1
-    port->ODR |= (1 << n);
-  } 
 }
 
 // FROM LAB 2 FOR THE BUTTON TRIGGERED INTERRUPTS
@@ -360,7 +373,7 @@ void EXTI0_1_IRQHandler() {
   dino_is_jumping = 1;
 //   dino_y = 224;
 
-  togglexn(GPIOB, 6);
+//   togglexn(GPIOB, 6);
 //   jump_sound_effect();
 }
 
@@ -368,7 +381,6 @@ void EXTI2_3_IRQHandler() {
   EXTI->PR = EXTI_PR_PR2;
   cacti_exists = 1;
 }
-
 
 void setup_tim3(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;      
@@ -388,7 +400,6 @@ void setup_tim3(void) {
     TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC1M_Pos); // Set PWM mode 1 for OC1
     TIM3->CCER |= TIM_CCER_CC1E;          
 
-   
     TIM3->CCR1 = 200;                                 // Start the timer
 
 }
@@ -490,6 +501,8 @@ void drive_bb(void) {
     TIM3 -> CR1 = TIM_CR1_CEN;
 }
  */
+
+// 1 hz
 void init_tim6(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM6EN;
 
@@ -535,14 +548,14 @@ int main() {
 
     initb();
     init_exti();
-    init_tim6();
+    // init_tim6();
     init_tim7();
     setup_tim3();
-    setup_bb();
+    // setup_bb();
     
     update_display(countdown);
 
-    drive_bb();
+    // drive_bb();
     // LCD_DrawChar(0, 0, 0x0000, 0xffff, 'd', 16, 0);
     // for(;;) {}
 }
