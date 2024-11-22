@@ -136,6 +136,7 @@ int countdown_countdown = 0;
 int frequency = 1923;
 int DINO_VELOCITY = 4;
 int CACTI_VELOCITY = 6;
+int start_game = 0; 
 
 // 96x96 dino
 #define DINO_HEIGHT 96
@@ -244,10 +245,35 @@ void update_clock(int value) {
 }
 
 void start_menu_on() {
-    LCD_DrawPictureNew(85, 300, start, 70, 10);
+    LCD_DrawPictureNew(30, 250, start, 180, 10);
+}
+
+void start_menu_off() {
+    LCD_DrawFillRectangle(30, 250, 210, 260, 0x0000);
+}
+
+void game_header_on() {
+    LCD_DrawPictureNew(80, 20, dino_rush, 80, 50);
 }
 
 void refresh_game() {
+    if(!start_game && countdown == 30 && countdown_countdown == 0) {
+        start_menu_on();
+        game_header_on();
+        // if(countdown_countdown < 20) {
+        //     start_menu_on();
+        // } else if(countdown_countdown <= 30) {
+        //     start_menu_off();
+        // } else {
+        //     start_menu_on();
+        //     countdown_countdown = 0;
+        // }
+        return;
+
+    } else if(countdown == 30 && countdown_countdown == 0){
+        LCD_Clear(0x0000);
+    }
+
     make_clouds();
 
     if(countdown == 20 && countdown_countdown == 0) {
@@ -335,10 +361,12 @@ void refresh_game() {
 }
 
 void TIM7_IRQHandler(void) {
-    if (TIM7->SR & TIM_SR_UIF && !game_over) {
+    if (TIM7->SR & TIM_SR_UIF) {
         TIM7->SR &= ~TIM_SR_UIF;
-        refresh_game();
-    }
+        if(!game_over) {
+            refresh_game();
+        }
+    } 
 }
 
 // FROM LAB 2 FOR THE BUTTON TRIGGERED INTERRUPTS
@@ -371,15 +399,16 @@ void init_exti() {
 void EXTI0_1_IRQHandler() {
   EXTI->PR = EXTI_PR_PR0;
   dino_is_jumping = 1;
-//   dino_y = 224;
-
-//   togglexn(GPIOB, 6);
-//   jump_sound_effect();
+    start_game = 1;
 }
 
 void EXTI2_3_IRQHandler() {
   EXTI->PR = EXTI_PR_PR2;
-  cacti_exists = 1;
+  if(start_game == 0) {
+    start_game = 1;
+  } else {
+    cacti_exists = 1;
+  }
 }
 
 void setup_tim3(void) {
