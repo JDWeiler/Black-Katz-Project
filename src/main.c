@@ -132,30 +132,45 @@ int direction = 1; // 0 = down, 1 = up
 int cacti_exists = 0;
 int cacti_x = 180; // starting x value
 int game_over = 0; // 0 = game on ; 1 = game over
+int countdown = 10;
 
 // 96x96 dino
 #define DINO_HEIGHT 96
 #define DINO_WIDTH 96
 #define CACTI_HEIGHT 48
 #define CACTI_WIDTH 48
-#define DINO_VELOCITY 4
+#define DINO_VELOCITY 6
 #define CACTI_VELOCITY 5
 
 //100 hz game refresh rate (i dont think we can actually do 100 hx though bc it takes to long to refresh stuff)
 void init_tim7(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
     TIM7->PSC = 4799;
-    TIM7->ARR = 99;
+    TIM7->ARR = 499;
     TIM7->DIER |= TIM_DIER_UIE;
 
-    NVIC -> ISER[0] = 1 << TIM7_IRQn;
+    NVIC -> ISER[0] |= 1 << TIM7_IRQn;
 
     // TIM7->CR1 &= ~TIM_CR1_CEN;
     TIM7 -> CR1 |= TIM_CR1_CEN;
 }
+void sound_on(){
+    TIM3->CR1 |= TIM_CR1_CEN;
+}
+void sound_off(){
+    TIM3->CR1 &= ~TIM_CR1_CEN;
+}
 
 void refresh_game() {
-    if(dino_is_jumping) {
+    if(countdown == 0){
+        game_over = 1;
+        
+        LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+        LCD_Clear(RED);
+        sound_off();
+    }
+    if(dino_is_jumping && !game_over) {
+        sound_on();
         if(dino_y <= 120) direction = 0;
 
         if(direction) { 
@@ -171,11 +186,13 @@ void refresh_game() {
             dino_is_jumping = 0; 
             direction = 1;
         }
-    } else {
+        
+    } else if(!game_over){
         LCD_DrawPictureNew(0, dino_y, dino_bitmap, DINO_WIDTH, DINO_HEIGHT);
+        sound_off();
     }
 
-    if(cacti_exists) {
+    if(cacti_exists && !game_over) {
         cacti_x -= CACTI_VELOCITY;
         update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
         
@@ -184,7 +201,8 @@ void refresh_game() {
             if(dino_y >= 178) {
                 game_over = 1; 
                 cacti_exists = 0;
-                draw_game_over(player2wins);
+                LCD_DrawPictureNew(0, 0, player2win, 240, 320);
+                sound_off();
             } else {
                 cacti_x -= CACTI_VELOCITY;
                 update_cacti(cacti_bitmap, CACTI_WIDTH, CACTI_HEIGHT, cacti_x);
@@ -247,10 +265,14 @@ void init_exti() {
 
 }
 
+
+
+
 void EXTI0_1_IRQHandler() {
   EXTI->PR = EXTI_PR_PR0;
   dino_is_jumping = 1;
 //   dino_y = 224;
+
   togglexn(GPIOB, 6);
 }
 
@@ -259,22 +281,182 @@ void EXTI2_3_IRQHandler() {
   cacti_exists = 1;
 }
 
+
+void setup_tim3(void) {
+    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;      
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN;    
+
+    
+    GPIOC->MODER &= ~(0x000FF000);           
+    GPIOC->MODER |= (0x000AA000);            
+    
+    GPIOC->AFR[0] &= ~GPIO_AFRL_AFRL6;       
+    // Configure TIM3 for 4kHz PWM
+    TIM3->PSC = 47;                  
+    TIM3->ARR = 1923;                      
+
+    // Set PWM mode 1 for TIM3 Channel 1 (PC6)
+    TIM3->CCMR1 &= ~(TIM_CCMR1_OC1M);        // Clear the OC1M bits
+    TIM3->CCMR1 |= (0x6 << TIM_CCMR1_OC1M_Pos); // Set PWM mode 1 for OC1
+    TIM3->CCER |= TIM_CCER_CC1E;          
+
+   
+    TIM3->CCR1 = 200;                                 // Start the timer
+
+}
+
+
+//===========================================================================
+// Bit Bang SPI LED Array
+//===========================================================================
+int msg_index = 0;
+uint16_t msg[8] = { 0x0000, 0x0100,0x0200,0x0300,0x0400,0x0500,0x0600,0x0700, 0x0800};
+extern const char font[];
+
+
+void small_delay(void) {
+    nano_wait(50000);
+}
+
+void setup_bb(void) {
+    RCC->AHBENR |= RCC_AHBENR_GPIOAEN;  // Enable GPIOA clock
+
+    // Configure PA4 (CS) as output
+    GPIOA->MODER &= ~(0x3 << (4 * 2)); // Clear mode bits for PA4
+    GPIOA->MODER |= (0x1 << (4 * 2)); // Set PA4 to output mode
+
+    // Configure PA5 (SCK) as output
+    GPIOA->MODER &= ~(0x3 << (5 * 2)); // Clear mode bits for PA5
+    GPIOA->MODER |= (0x1 << (5 * 2)); // Set PA5 to output mode
+
+    // Configure PA7 (SDI) as output
+    GPIOA->MODER &= ~(0x3 << (7 * 2)); // Clear mode bits for PA7
+    GPIOA->MODER |= (0x1 << (7 * 2)); // Set PA7 to output mode
+
+    // Initialize GPIO outputs
+    GPIOA->ODR |= (1 << 4);   // Set PA4 (CS) high
+    GPIOA->ODR &= ~(1 << 5);  // Set PA5 (SCK) low
+    GPIOA->ODR &= ~(1 << 7);  // Set PA7 (SDI) low
+}
+
+//===========================================================================
+// Set the MOSI bit, then set the clock high and low.
+// Pause between doing these steps with small_delay().
+//===========================================================================
+
+void bb_write_bit(int val) {
+    // Set SDI (PA7)
+    if (val) {
+        GPIOA->ODR |= (1 << 7);  // Set PA7 (SDI) high
+    } else {
+        GPIOA->ODR &= ~(1 << 7); // Set PA7 (SDI) low
+    }
+    small_delay();
+
+    // Toggle SCK (PA5)
+    GPIOA->ODR |= (1 << 5);   // Set PA5 (SCK) high
+    small_delay();
+    GPIOA->ODR &= ~(1 << 5);  // Set PA5 (SCK) low
+}
+
+//===========================================================================
+// Set CS (PB12) low,
+// write 16 bits using bb_write_bit,
+// then set CS high.
+//===========================================================================
+void bb_write_halfword(int halfword) {
+   GPIOA->ODR &= ~(1 << 4);  // Clear PA4 (CS)
+
+    for (int i = 15; i >= 0; i--) {
+        int bit = (halfword >> i) & 1;
+        bb_write_bit(bit);
+    }
+
+    GPIOA->ODR |= (1 << 4);
+}
+
+//===========================================================================
+// Continually bitbang the msg[] array.
+//===========================================================================
+void drive_bb(void) {
+    for(;;){
+        for(int d=0; d<8; d++) {
+            bb_write_halfword(msg[d]);
+            nano_wait(100000); // wait 1 ms between digits
+        }
+    }
+}
+
+//===========================================================================
+// Configure timer 7 to invoke the update interrupt at 1kHz
+// Copy from lab 4 or 5.
+//===========================================================================
+/* void init_tim3(void) {
+    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+
+    TIM3->PSC = 4799;
+    TIM3->ARR = 99;
+
+    TIM3 -> DIER |= TIM_DIER_UIE;
+    NVIC -> ISER[0] |= 1 << TIM3_IRQn;
+    TIM3 -> CR1 = TIM_CR1_CEN;
+}
+ */
+void init_tim6(void) {
+    RCC->APB1ENR |= RCC_APB1ENR_TIM6EN;
+
+    TIM6->PSC = 47999;
+    TIM6->ARR = 999;
+
+    TIM6 -> DIER |= TIM_DIER_UIE;
+    NVIC -> ISER[0] |= 1 << TIM6_IRQn;
+    TIM6 -> CR1 = TIM_CR1_CEN;
+}
+
+
+void update_display(int value) {
+    int hundreds = value / 100;
+    int tens = (value / 10) % 10;
+    int ones = value % 10;
+    
+    msg[5] = (msg[5] & ~0x7F) | font[hundreds +'0']; 
+    msg[6] = (msg[6] & ~0x7F) | font[tens +'0'];
+    msg[7] = (msg[7] & ~0x7F) | font[ones +'0']; 
+
+}
+
+void TIM6_IRQHandler(void){
+    TIM6->SR &= ~TIM_SR_UIF;
+    if (countdown > 0) {
+        countdown--;
+    }
+    update_display(countdown);
+}
+
 int main() {
     internal_clock();
     init_usart5();
     enable_tty_interrupt();
-    
+
+   
     setbuf(stdin,0);
     setbuf(stdout,0);
     setbuf(stderr,0);
     
     LCD_Setup();
-    LCD_Clear(0x0000);
+    LCD_Clear(0x0000);   
 
     initb();
     init_exti();
+    init_tim6();
     init_tim7();
+    setup_tim3();
 
+    setup_bb();
+    
+    update_display(countdown);
+
+    drive_bb();
     // LCD_DrawChar(0, 0, 0x0000, 0xffff, 'd', 16, 0);
     // for(;;) {}
 }
